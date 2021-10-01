@@ -39,6 +39,7 @@ class NaiveBayes(Model):
         self.feature_likelihood = None
         self.number_of_features = None
         self.class_mapping = {}  # from give classes to N
+        self.parameters = {}
 
     def __initialize(self, X, y):
         Y, self.classes, self.class_mapping = encode_onehot(y)
@@ -58,17 +59,35 @@ class NaiveBayes(Model):
         """
         Y = self.__initialize(X, y)
         self.number_of_features = X.shape[1]
+        self.likelihood = likelihood
+        self.priors = (
+            priors
+            if priors is not None
+            else np.ones(len(self.classes)) / len(self.classes)
+        )
+
+        if likelihood == "gauusian":
+            mus = np.mean(X, axis=0)
+            variances = np.var(X, axis=0)
+            self.parameters["mu"] = mus
+            self.parameters["variance"] = variances
 
         if likelihood == "multinomial":
-            self.alpha = kwargs.get("alpha", 0.000000001)
-            assert self.alpha > 0
-            # self.feature_likelihood = np.zeros(
-            #     (len(self.classes), self.number_of_features)
-            # )
-            total_class_count = np.zeros(len(self.classes))
-            self.feature_likelihood = Y.T @ X
+            alpha = kwargs.get("alpha", 0.000000001)
+            assert alpha > 0
 
+            feature_likelihood = (Y.T @ X) + alpha
+            total_class_count = (
+                np.sum(feature_likelihood, axis=1).reshape(len(self.classes, 1))
+                + self.number_of_features * alpha
+            )
+            feature_likelihood = np.divide(feature_likelihood, total_class_count)
+
+            self.parameters["alpha"] = alpha
+            self.parameters["featureLikelihood"] = self.feature_likelihood
             # NOTE: summing over feature value hence values must be indicative of importance not perpendicular values like categories in that case first make it one-hot
+
+        self.is_fitted = True
 
     def score(self, X, y):
         """compute MSE score by default
@@ -90,5 +109,18 @@ class NaiveBayes(Model):
         """
 
         assert self.is_fitted
+        log_priors = np.log(self.priors)
+        if self.likelihood == "gauusian":
+            mu = self.parameters["mu"]
+            var = self.parameters["variance"]
+            log_likelihood = [
+                log_priors[i]
+                + -0.5
+                * (
+                    np.sum(np.log(2 * np.pi * var[i]))
+                    + np.sum(((X - mu[i]) ** 2) / var[i], axis=1)
+                )
+                for i in range(len(self.classes))
+            ]
 
-        pass
+        return log_likelihood
