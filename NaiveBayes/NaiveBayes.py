@@ -67,13 +67,18 @@ class NaiveBayes(Model):
         )
 
         if likelihood == "gauusian":
+            var_smooth = kwargs.get("var_smooth", 0.00000001)
+            assert var_smooth > 0
             s = Y.T @ X
             mus = s / np.sum(Y, axis=0).reshape(len(self.classes), 1)
             v = (X - Y @ mus) ** 2
             vs = Y.T @ v
-            variances = vs / (np.sum(Y, axis=0)).reshape(2, 1)
+            variances = (
+                vs / (np.sum(Y, axis=0)).reshape(len(self.classes), 1)
+            ) + var_smooth
             self.parameters["mu"] = mus
             self.parameters["variance"] = variances
+            self.parameters["var_smooth"] = var_smooth
 
         if likelihood == "multinomial":
             alpha = kwargs.get("alpha", 0.000000001)
@@ -121,10 +126,12 @@ class NaiveBayes(Model):
                 log_priors[i]
                 + -0.5
                 * (
-                    np.sum(np.log(2 * np.pi * var[i]))
-                    + np.sum(((X - mu[i]) ** 2) / var[i], axis=1)
+                    np.sum(np.log(2 * np.pi * var[i, :]))
+                    + np.sum(((X - mu[i, :]) ** 2) / var[i, :], axis=1)
                 )
                 for i in range(len(self.classes))
             ]
 
-        return log_likelihood
+        return np.array(
+            [self.classes[e] for e in np.argmax(np.array(log_likelihood), axis=0)]
+        )
