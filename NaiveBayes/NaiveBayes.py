@@ -67,8 +67,11 @@ class NaiveBayes(Model):
         )
 
         if likelihood == "gauusian":
-            mus = np.mean(X, axis=0)
-            variances = np.var(X, axis=0)
+            s = Y.T @ X
+            mus = s / np.sum(Y, axis=0).reshape(len(self.classes), 1)
+            v = (X - Y @ mus) ** 2
+            vs = Y.T @ v
+            variances = vs / (np.sum(Y, axis=0)).reshape(2, 1)
             self.parameters["mu"] = mus
             self.parameters["variance"] = variances
 
@@ -113,6 +116,7 @@ class NaiveBayes(Model):
         if self.likelihood == "gauusian":
             mu = self.parameters["mu"]
             var = self.parameters["variance"]
+
             log_likelihood = [
                 log_priors[i]
                 + -0.5
