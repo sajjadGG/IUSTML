@@ -104,7 +104,7 @@ class NaiveBayes(Model):
             X (np.array): features
             y (np.array): labels
         """
-        pass
+        return np.sum(self.predict(X) == y) / y.shape[0]
 
     def predict(self, X):
         """predict using fitted model and it should be called after fit
